@@ -1,3 +1,4 @@
+from tu_dien_tang_san.c11_ung_ky import tra_cuu_tu_dien, UNG_KY_QUY_TAC
 import os
 import re
 from groq import Groq
@@ -8,7 +9,7 @@ API_KEY = os.environ.get("GROQ_API_KEY", "")
 client = Groq(api_key=API_KEY)
 bo_nao_flat_os = BrainAI_BocDich_FlatOS()
 
-MODELS = ["openai/gpt-oss-120b", "openai/gpt-oss-20b"]
+MODELS = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"]
 
 def hoi_ai_boc_dich(cau_hoi, bang_que, dt_muc_tieu, diem_nong, dt_bi_khong_pha=False):
     chuong = tra_cuu_tu_dien(cau_hoi)
@@ -53,15 +54,23 @@ CHUẨN MỰC NGÔN TỪ & HÀNH VĂN DỊCH HỌC VIỆT NAM:
 - Đọc chính xác tuyệt đối vị trí Hào Thế và Hào Ứng từ báo cáo M1, tuyệt đối không gộp nhầm tên của Thế và Ứng."""
 
     thoi_gian_thuc = "\n".join(bang_que.splitlines()[:2])
+    muc_tu_dien = tra_cuu_tu_dien(cau_hoi)
+    huong_dan_bo_sung = f"[CHƯƠNG]: {muc_tu_dien['ten']} | [DỤNG THẦN]: {muc_tu_dien['dung_than']} | [KHẨU QUYẾT]: {muc_tu_dien['khau_quyet']}\nTrình bày mạch lạc 4 phần: 1. Định Dụng Thần & Thế Ứng; 2. Phân Tích Động Biến & Sinh Khắc; 3. Dự Đoán Cát Hung & Ứng Kỳ; 4. Lời Khuyên Hành Động."
     user_prompt = f"""Thời gian thực tế lúc gieo quẻ:
 {thoi_gian_thuc}
 
-Mong cầu của khách: "{cau_hoi}"
+Mong cầu của khách: "{cau_hoi}"\n{huong_dan_bo_sung}
 Trạng thái tâm thức: {ket_qua_nao['trang_thai_m2']}
 
 Dữ liệu Dịch lý từ Bán cầu M1:
 {diem_nong}"""
 
+    try:
+        ds_model = [m.id for m in client.models.list().data if "whisper" not in m.id.lower() and "guard" not in m.id.lower() and "tts" not in m.id.lower()]
+        uu_tien = [m for m in ds_model if any(k in m.lower() for k in ["70b", "qwen", "llama-4", "deepseek", "32b"])]
+        MODELS = uu_tien + [m for m in ds_model if m not in uu_tien]
+    except Exception:
+        MODELS = ["llama-3.3-70b-versatile"]
     for model_id in MODELS:
         try:
             chat_completion = client.chat.completions.create(
@@ -71,13 +80,14 @@ Dữ liệu Dịch lý từ Bán cầu M1:
                 ],
                 model=model_id,
                 temperature=0.4,
-                max_tokens=4096
+                max_tokens=2048
             )
             noi_dung = next(iter(chat_completion.choices)).message.content or ""
             noi_dung = re.sub(r'<think>.*?</think>', '', noi_dung, flags=re.DOTALL).strip()
             if len(noi_dung) > 20:
                 return header_nao + noi_dung
-        except Exception:
+        except Exception as e:
+            print('Loi Groq:', e)
             continue
 
     return header_nao + "⏳ Hệ thống đang hồi phục lượt hỏi, bạn hãy tĩnh tâm thử lại sau 15 giây nhé!"

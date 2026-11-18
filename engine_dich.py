@@ -1,7 +1,78 @@
+
+TIEN_THAN = {("Hợi","Tý"), ("Dần","Mão"), ("Tỵ","Ngọ"), ("Thân","Dậu"), ("Sửu","Thìn"), ("Thìn","Mùi"), ("Mùi","Tuất"), ("Tuất","Sửu")}
+THOAI_THAN = {(b, a) for (a, b) in TIEN_THAN}
+NHI_HOP = {("Tý","Sửu"), ("Sửu","Tý"), ("Dần","Hợi"), ("Hợi","Dần"), ("Mão","Tuất"), ("Tuất","Mão"), ("Thìn","Dậu"), ("Dậu","Thìn"), ("Tỵ","Thân"), ("Thân","Tỵ"), ("Ngọ","Mùi"), ("Mùi","Ngọ")}
+TAM_HOP_CUC = [
+    ({"Hợi", "Mão", "Mùi"}, "Mộc cục"),
+    ({"Dần", "Ngọ", "Tuất"}, "Hỏa cục"),
+    ({"Tỵ", "Dậu", "Sửu"}, "Kim cục"),
+    ({"Thân", "Tý", "Thìn"}, "Thủy cục")
+]
+NGU_HANH_SINH = {"Kim": "Thủy", "Thủy": "Mộc", "Mộc": "Hỏa", "Hỏa": "Thổ", "Thổ": "Kim"}
+NGU_HANH_KHAC = {"Kim": "Mộc", "Mộc": "Thổ", "Thổ": "Thủy", "Thủy": "Hỏa", "Hỏa": "Kim"}
+
+def xet_vuong_suy_nguyet(h_hao, h_nguyet):
+    if h_hao == h_nguyet: return "Vượng (Lâm Nguyệt)"
+    if NGU_HANH_SINH.get(h_nguyet) == h_hao: return "Tướng (Nguyệt sinh)"
+    if NGU_HANH_SINH.get(h_hao) == h_nguyet: return "Hưu (Sinh Nguyệt)"
+    if NGU_HANH_KHAC.get(h_nguyet) == h_hao: return "Tử (Bị Nguyệt khắc)"
+    return "Tù (Khắc Nguyệt)"
+
+def phan_tich_nang_cao_tang_san(hc, cc, cb, hd, chi_ngay, chi_nguyet, HANH, XUNG, luc_than):
+    ket_qua = []
+    h_nguyet = HANH[chi_nguyet]
+    chi_tap_hop = {chi_ngay, chi_nguyet}
+    for i in range(6):
+        c1 = cc[i]
+        h1 = HANH[c1]
+        lt_name = luc_than(hc, h1).strip()
+        vs = xet_vuong_suy_nguyet(h1, h_nguyet)
+        ghi_chu = [vs]
+        if (c1, chi_ngay) in NHI_HOP: ghi_chu.append("Nhật Hợp")
+        if (c1, chi_nguyet) in NHI_HOP: ghi_chu.append("Nguyệt Hợp")
+        if XUNG.get(chi_ngay) == c1 and (i + 1) != hd:
+            if "Vượng" in vs or "Tướng" in vs: ghi_chu.append("Ám Động")
+        if (i + 1) == hd:
+            c2 = cb[i]
+            h2 = HANH[c2]
+            chi_tap_hop.update([c1, c2])
+            if (c1, c2) in TIEN_THAN: ghi_chu.append("Hóa Tiến Thần")
+            elif (c1, c2) in THOAI_THAN: ghi_chu.append("Hóa Thoái Thần")
+            elif (c1, c2) in NHI_HOP: ghi_chu.append("Động Hóa Hợp")
+            elif XUNG.get(c1) == c2: ghi_chu.append("Hóa Phản Ngâm")
+            if NGU_HANH_SINH.get(h2) == h1: ghi_chu.append("Hồi Đầu Sinh")
+            elif NGU_HANH_KHAC.get(h2) == h1: ghi_chu.append("Hồi Đầu Khắc")
+        ket_qua.append(f"   - Hào {i+1} ({lt_name} {c1}-{h1}): {', '.join(ghi_chu)}")
+    for bo_tam_hop, ten_cuc in TAM_HOP_CUC:
+        if bo_tam_hop.issubset(chi_tap_hop):
+            ket_qua.append(f"1C. TAM HỢP CỤC: Hợp thành {ten_cuc} ({', '.join(bo_tam_hop)})!")
+    return ket_qua
+
 LUC_VI_MAP = {1: "Hào 1 (Nền móng, nhà trọ, cấp dưới)", 2: "Hào 2 (Gia đình, nội bộ, thân cận)", 3: "Hào 3 (Cửa ngõ, đồng nghiệp, đi lại)", 4: "Hào 4 (Cơ quan, quản lý trực tiếp)", 5: "Hào 5 (Lãnh đạo, vị trí trung tâm)", 6: "Hào 6 (Nơi phương xa, kết cục)"}
 from datetime import timezone, timedelta, datetime, date
 from lunardate import LunarDate
 from data_dich import *
+
+BAT_CUNG_CHUAN = {}
+_QUAI_BITS = {
+    "Càn": (1,1,1), "Đoài": (1,1,0), "Ly": (1,0,1), "Chấn": (1,0,0),
+    "Tốn": (0,1,1), "Khảm": (0,1,0), "Cấn": (0,0,1), "Khôn": (0,0,0)
+}
+_BITS_QUAI = {v: k for k, v in _QUAI_BITS.items()}
+for _cung, _b3 in _QUAI_BITS.items():
+    _b = list(_b3 + _b3) # Bát Thuần: Hạ + Thượng
+    BAT_CUNG_CHUAN[(_cung, _cung)] = (_cung, 6)
+    for _step in range(5): # Nhất Thế -> Ngũ Thế (biến H1 -> H5)
+        _b[_step] = 1 - _b[_step]
+        _ha, _thuong = _BITS_QUAI[tuple(_b[:3])], _BITS_QUAI[tuple(_b[3:])]
+        BAT_CUNG_CHUAN[(_thuong, _ha)] = (_cung, _step + 1)
+    # Du Hồn: từ Ngũ Thế biến ngược Hào 4 (index 3)
+    _b[3] = 1 - _b[3]
+    BAT_CUNG_CHUAN[(_BITS_QUAI[tuple(_b[3:])], _BITS_QUAI[tuple(_b[:3])])] = (_cung, 4)
+    # Quy Hồn: từ Du Hồn biến toàn bộ Hạ Quái (H1, H2, H3)
+    for _i in range(3): _b[_i] = 1 - _b[_i]
+    BAT_CUNG_CHUAN[(_BITS_QUAI[tuple(_b[3:])], _BITS_QUAI[tuple(_b[:3])])] = (_cung, 3)
+
 from tu_dien_tang_san.c11_ung_ky import tra_cuu_tu_dien
 
 QUE_LUC_XUNG = {(1,1), (2,2), (3,3), (4,4), (5,5), (6,6), (7,7), (8,8), (1,4), (4,1)}
@@ -53,13 +124,14 @@ def kiem_tra_giao_thoi(dt):
 def tim_cung_the(bc):
     h1, h2, h3, h4, h5, h6 = [int(x) for x in bc]
     noi, ngoai = f"{h1}{h2}{h3}", f"{h4}{h5}{h6}"
-    doi_noi, bat_thuan_h6 = f"{1-h1}{1-h2}{1-h3}", f"{h6}{h6}{h6}"
+    ngu_the_cung = f"{1-h4}{1-h5}{h6}"
+    doi_noi = f"{1-h1}{1-h2}{1-h3}"
     if h1 == h4 and h2 == h5 and h3 == h6: return BIN_QUAI[ngoai], 6, 3
     if h1 != h4 and h2 == h5 and h3 == h6: return BIN_QUAI[ngoai], 1, 4
     if h1 != h4 and h2 != h5 and h3 == h6: return BIN_QUAI[ngoai], 2, 5
     if h1 != h4 and h2 != h5 and h3 != h6: return BIN_QUAI[ngoai], 3, 6
-    if h1 == h4 and h2 != h5 and h3 != h6: return BIN_QUAI[bat_thuan_h6], 4, 1
-    if h1 == h4 and h2 == h5 and h3 != h6: return BIN_QUAI[bat_thuan_h6], 5, 2
+    if h1 == h4 and h2 != h5 and h3 != h6: return BIN_QUAI[ngu_the_cung], 4, 1
+    if h1 == h4 and h2 == h5 and h3 != h6: return BIN_QUAI[ngu_the_cung], 5, 2
     if h1 != h4 and h2 == h5 and h3 != h6: return BIN_QUAI[doi_noi], 4, 1
     return BIN_QUAI[noi], 3, 6
 
@@ -230,6 +302,10 @@ def lap_que_tang_san(cau_hoi):
             toan_canh.append(f"   - [ẨN PHỤC TẠI HÀO {idx_bt+1}]: {lt_bt} {c_bt[idx_bt]} ({HANH[c_bt[idx_bt]]}) ẩn dưới Phi Thần {luc_than(hc, HANH[cc[idx_bt]]).strip()} {cc[idx_bt]} ({HANH[cc[idx_bt]]})")
     bao_cao.extend(toan_canh)
 
+    try:
+        bao_cao.extend(phan_tich_nang_cao_tang_san(hc, cc, cb, hd, chi_ngay, chi_nguyet, HANH, XUNG, luc_than))
+    except Exception:
+        pass
     from ket_noi_ai import hoi_ai_boc_dich
     bang_que_str = "\n".join(lines)
     return bang_que_str, hoi_ai_boc_dich(cau_hoi, bang_que_str, dt_muc_tieu, "\n".join(bao_cao), dt_bi_khong_pha)
